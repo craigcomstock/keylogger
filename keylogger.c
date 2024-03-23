@@ -5,7 +5,9 @@ CGEventFlags lastFlags = 0;
 int main(int argc, const char *argv[]) {
 
     // Create an event tap to retrieve keypresses.
-    CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventFlagsChanged);
+//    CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventFlagsChanged) | CGEventMaskBit(kCGEventScrollWheel) | CGEventMaskBit(kCGEventLeftMouseDown) | CGEventMaskBit(kCGEventRightMouseDown);
+//    CGEventMask eventMask = kCGEventMaskForAllEvents;
+    CGEventMask eventMask = CGEventMaskBit(kCGEventOtherMouseDown) | CGEventMaskBit(kCGEventOtherMouseUp) | CGEventMaskBit(kCGEventOtherMouseDragged);
     CFMachPortRef eventTap = CGEventTapCreate(
         kCGSessionEventTap, kCGHeadInsertEventTap, 0, eventMask, CGEventCallback, NULL
     );
@@ -57,7 +59,39 @@ int main(int argc, const char *argv[]) {
 
 // The following callback method is invoked on every keypress.
 CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
-    if (type != kCGEventKeyDown && type != kCGEventFlagsChanged) {
+    // https://developer.apple.com/documentation/coregraphics/cgeventtype/kcgeventkeydown
+    // https://developer.apple.com/documentation/coregraphics/cgeventtype/kcgeventscrollwheel
+    // maybe hijack kCGEventLeftMouseDown and kCGEventRightMouseDown
+    // also there is kCGEventOtherMouseDown
+    // lots of data https://developer.apple.com/documentation/coregraphics/cgeventfield
+    printf("type=%d\n", type);
+//    if (type == kCGEventScrollWheel) {
+      {
+      CGKeyCode keyCode = (CGKeyCode) CGEventGetIntegerValueField(event, kCGScrollWheelEventDeltaAxis1);
+      printf("scrollwheel, delta-axis-1=%d\n", keyCode);
+      keyCode = (CGKeyCode) CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber);
+      printf("mouse event button number=%d\n", keyCode);
+if (keyCode==4 && type==25) {
+  printf("pageup, swallow!\n");
+  CGEventRef up, down;
+  up = CGEventCreateKeyboardEvent( NULL, (CGKeyCode)6, true);
+  down = CGEventCreateKeyboardEvent( NULL, (CGKeyCode)6, false);
+  CGEventTapPostEvent(proxy, down);
+  CGEventTapPostEvent(proxy, up);
+  return NULL;
+}
+if (keyCode==3 && type==25) {
+  printf("pageup, swallow!\n");
+  CGEventRef up, down;
+  up = CGEventCreateKeyboardEvent( NULL, (CGKeyCode)0, true);
+  down = CGEventCreateKeyboardEvent( NULL, (CGKeyCode)0, false);
+  CGEventTapPostEvent(proxy, down);
+  CGEventTapPostEvent(proxy, up);
+  return NULL;
+}
+      return event;
+    }
+    if (type != kCGEventKeyDown && type != kCGEventFlagsChanged && type != kCGEventScrollWheel) {
         return event;
     }
 
@@ -105,7 +139,7 @@ CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef e
     // Print the human readable key to the logfile.
     bool shift = flags & kCGEventFlagMaskShift;
     bool caps = flags & kCGEventFlagMaskAlphaShift;
-    fprintf(logfile, "%s", convertKeyCode(keyCode, shift, caps));
+    fprintf(logfile, "%s\n", convertKeyCode(keyCode, shift, caps));
     fflush(logfile);
     return event;
 }

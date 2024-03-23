@@ -24,7 +24,7 @@ startup: install
 	launchctl load -w $(PLISTFULL)
 
 load:
-	launchctl load $(PLISTFULL)
+	launchctl bootstrap $(PLISTFULL)
 
 unload:
 	launchctl unload $(PLISTFULL)
