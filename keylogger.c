@@ -6,16 +6,113 @@ CGEventFlags lastFlags = 0;
 char keyname[256];
 
 void dump_stats(int sig) {
+  // we read in stats at beginning so overwrite with an updated full set of
+  // stats
+  statsfile = fopen(statsfilelocation, "w");
+
+  if (!statsfile) {
+    fprintf(stderr,
+            "ERROR: Unable to open stats file. Ensure that you have the "
+            "proper permissions.\n");
+    exit(1);
+  }
+
   for (int i = 0; i < 256; i++) {
     if (stats[i].keyname != NULL) {
-      printf("%s %d\n", stats[i].keyname, stats[i].n);
+      fprintf(statsfile, "%s %d\n", stats[i].keyname, stats[i].n);
     }
   }
   exit(0);
 }
 
-int main(int argc, const char *argv[]) {
+void loadFile(char *path, char *dest, int max) {
+  //	printf("loadFile\n");
+  FILE *fp;
+  fp = fopen(path, "r");
+  if (fp == NULL) {
+    fprintf(stderr, "couldn't open gestures file:%s\n", path);
+    exit(3);
+  }
+  int c;
+  int i = 0;
+  strcpy(dest, "");
 
+  while ((c = getc(fp)) != EOF) {
+    if (i > max - 1) {
+      fprintf(stderr, "buffer not big enough for gestures file.\n");
+      exit(4);
+    }
+    dest[i] = (char)c;
+    i++;
+  }
+  fclose(fp);
+}
+
+void read_stats() {
+  statsfile = fopen(statsfilelocation, "r");
+  // TODO maybe the file doesn't exist yet, that's ok. :)
+  if (!statsfile) {
+    /*
+    fprintf(stderr,
+            "ERROR: Unable to open stats file. Ensure that you have the "
+            "proper permissions.\n");
+    */
+    return;
+    // exit(1);
+  }
+
+  char buffer[8000];
+  int max = 8000;
+  char *str = buffer;
+  int i = 0;
+  int c;
+
+  while ((c = getc(statsfile)) != EOF) {
+    if (i > max - 1) {
+      fprintf(stderr, "buffer not big enough for stats file.\n");
+      exit(2);
+    }
+    buffer[i] = (char)c;
+    i++;
+  }
+  fclose(statsfile);
+
+  char *strptr, *line, *key, *value, *file_parser, *line_parser;
+  strptr = str;
+  ENTRY e, *ep;
+  stat_ptr = stats;
+  for (;;) {
+    line = strtok_r(strptr, "\n", &file_parser);
+    // fprintf(stderr, "strptr %p, file_parser %p\n", strptr, file_parser);
+    strptr = NULL;
+    if (line == NULL)
+      break;
+    if (line[0] == '#') {
+      // fprintf(stderr, "comment line: '%s'\n", line);
+      continue;
+    }
+    // fprintf(stderr, "line is '%s'\n", line);
+    strptr = line;
+    key = strtok_r(strptr, " ", &line_parser);
+    if (key == NULL) {
+      break;
+    }
+    strptr = NULL;
+    value = strtok_r(strptr, " ", &line_parser);
+    if (value == NULL) {
+      break;
+    }
+
+    stat_ptr++;
+    stat_ptr->keyname = strdup(key);
+    stat_ptr->n = atoi(value);
+    e.key = strdup(key);
+    e.data = stat_ptr;
+    hsearch(e, ENTER);
+  }
+}
+
+int main(int argc, const char *argv[]) {
   // add a signal handler to dump stats at end
   signal(SIGINT, dump_stats);
   signal(SIGTERM, dump_stats);
@@ -42,39 +139,27 @@ int main(int argc, const char *argv[]) {
                      kCFRunLoopCommonModes);
   CGEventTapEnable(eventTap, true);
 
-  // Clear the logfile if clear argument used or log to specific file if given.
+  // Clear the statsfile if clear argument used or log to specific file if
+  // given.
   if (argc == 2) {
     if (strcmp(argv[1], "clear") == 0) {
-      fopen(logfileLocation, "w");
-      printf("%s cleared.\n", logfileLocation);
-      fflush(stdout);
+      unlink(statsfilelocation);
       exit(1);
     } else {
-      logfileLocation = argv[1];
+      statsfilelocation = argv[1];
     }
   }
 
   // setup the stats map
   hdestroy();
   hcreate(256);
+  read_stats();
 
-  // Get the current time and open the logfile.
+  // Get the current time and open the statsfile.
   time_t result = time(NULL);
-  logfile = fopen(logfileLocation, "a");
 
-  if (!logfile) {
-    fprintf(stderr, "ERROR: Unable to open log file. Ensure that you have the "
-                    "proper permissions.\n");
-    exit(1);
-  }
-
-  // Output to logfile.
-  fprintf(logfile, "\n\nKeylogging (stats) has begun.\n%s\n",
-          asctime(localtime(&result)));
-  fflush(logfile);
-
-  // Display the location of the logfile and start the loop.
-  printf("Logging to: %s\n", logfileLocation);
+  // Display the location of the statsfile and start the loop.
+  printf("Collecting stats in: %s\n", statsfilelocation);
   fflush(stdout);
   CFRunLoopRun();
 
@@ -308,7 +393,7 @@ const char *convertKeyCode(int keyCode, bool shift, bool caps) {
   case 48:
     return "[tab]";
   case 49:
-    return " ";
+    return "[space]"; // need this visible so I can "see" it in stats file
   case 51:
     return "[del]";
   case 53:
