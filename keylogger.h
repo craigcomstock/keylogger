@@ -12,6 +12,7 @@
 
 ENTRY entry, *found;
 struct stat {
+  char *keyname;
   int n;
 };
 struct stat stats[256];

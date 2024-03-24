@@ -5,9 +5,24 @@
 CGEventFlags lastFlags = 0;
 char keyname[256];
 
+void dump_stats(int sig) {
+  for (int i = 0; i < 256; i++) {
+    if (stats[i].keyname != NULL) {
+      printf("%s %d\n", stats[i].keyname, stats[i].n);
+    }
+  }
+  exit(0);
+}
+
 int main(int argc, const char *argv[]) {
 
-  // add signal handler to write out stats to logfile TODO
+  // add a signal handler to dump stats at end
+  signal(SIGINT, dump_stats);
+  signal(SIGTERM, dump_stats);
+  signal(SIGBUS, dump_stats);
+  signal(SIGUSR1, dump_stats);
+  signal(SIGUSR2, dump_stats);
+
   // Create an event tap to retrieve keypresses.
   CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown);
   CFMachPortRef eventTap =
@@ -40,7 +55,6 @@ int main(int argc, const char *argv[]) {
   }
 
   // setup the stats map
-  ENTRY e, *ep;
   hdestroy();
   hcreate(256);
 
@@ -131,26 +145,27 @@ CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type,
   keyname = convertKeyCode(keyCode, shift, caps);
   entry.key = strdup(keyname);
   found = hsearch(entry, FIND);
-  printf("found=%p\n", found);
+  // printf("found=%p\n", found);
   int stat = 1;
   if (found == NULL) {
-    printf("found NULL so add entry\n");
+    // printf("found NULL so add entry\n");
     stat_ptr++;
-    printf("stat_ptr = %p\n", stat_ptr);
+    // printf("stat_ptr = %p\n", stat_ptr);
+    stat_ptr->keyname = strdup(keyname);
     stat_ptr->n = stat;
-    printf("stat_ptr->n = %d\n", stat_ptr->n);
+    // printf("stat_ptr->n = %d\n", stat_ptr->n);
     entry.data = stat_ptr;
-    printf("entry.data = %p\n", entry.data);
+    // printf("entry.data = %p\n", entry.data);
     hsearch(entry, ENTER);
   } else {
     stat = ((struct stat *)found->data)->n;
-    printf("update\n");
+    // printf("update\n");
     stat += 1;
-    printf("stat = %d\n", stat);
+    // printf("stat = %d\n", stat);
     ((struct stat *)found->data)->n += 1;
-    printf("entry updated\n");
+    // printf("entry updated\n");
   }
-  printf("stat for '%s' updated to %d\n", keyname, stat);
+  // printf("stat for '%s' updated to %d\n", keyname, stat);
   return event;
 }
 
