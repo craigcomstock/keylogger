@@ -121,7 +121,9 @@ int main(int argc, const char *argv[]) {
   signal(SIGUSR2, dump_stats);
 
   // Create an event tap to retrieve keypresses.
-  CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown);
+  // CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown);
+  CGEventMask eventMask =
+      CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventFlagsChanged);
   CFMachPortRef eventTap =
       CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap, 0, eventMask,
                        CGEventCallback, NULL);
@@ -169,6 +171,7 @@ int main(int argc, const char *argv[]) {
 // The following callback method is invoked on every keypress.
 CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type,
                            CGEventRef event, void *refcon) {
+  // printf("CGEventCallback()\n");
   if (type != kCGEventKeyDown && type != kCGEventFlagsChanged &&
       type != kCGEventScrollWheel) {
     return event;
@@ -180,7 +183,8 @@ CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type,
   CGKeyCode keyCode =
       (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
 
-  // Calculate key up/down.
+  // printf("keyCode=%d\n", keyCode);
+  //  Calculate key up/down.
   bool down = false;
   if (type == kCGEventFlagsChanged) {
     switch (keyCode) {
@@ -228,6 +232,7 @@ CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type,
 
   const char *keyname;
   keyname = convertKeyCode(keyCode, shift, caps);
+  // printf("keyname=%s\n", keyname);
   entry.key = strdup(keyname);
   found = hsearch(entry, FIND);
   // printf("found=%p\n", found);
